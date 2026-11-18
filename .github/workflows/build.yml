@@ -1,0 +1,40 @@
+name: APK bauen
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ZIP entpacken
+        run: unzip -o Tresor-APK.zip -d projekt
+      - name: Versionen anpassen
+        run: |
+          sed -i "s/version '8.5.2'/version '8.7.3'/" projekt/build.gradle
+          sed -i "s/compileSdk 34/compileSdk 35/" projekt/app/build.gradle
+          grep -q kotlin-bom projekt/app/build.gradle || sed -i "/^dependencies {/a\    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')" projekt/app/build.gradle
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: APK bauen
+        working-directory: projekt
+        run: gradle assembleRelease --no-daemon
+      - name: APK umbenennen
+        run: cp projekt/app/build/outputs/apk/release/app-release.apk Mein-Passwort-Manager.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Passwort-Manager-APK
+          path: Mein-Passwort-Manager.apk
+      - name: Release erstellen
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Mein Passwort-Manager v1.0.${{ github.run_number }}
+          files: Mein-Passwort-Manager.apk
